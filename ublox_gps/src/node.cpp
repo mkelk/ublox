@@ -113,6 +113,14 @@ void UbloxNode::addFirmwareInterface() {
 
 void UbloxNode::addProductInterface(std::string product_category,
                                     std::string ref_rov) {
+  ROS_INFO("melk: In UbloxNode");
+
+  ROS_INFO("melk: product_category is %s.", product_category);
+
+  // melk: Hack to MAKE us choose HpgRovProduct, even though product_category is garbage
+  if (true) {
+    components_.push_back(ComponentPtr(new HpgRovProduct));
+  } else {
   if (product_category.compare("HPG") == 0 && ref_rov.compare("REF") == 0)
     components_.push_back(ComponentPtr(new HpgRefProduct));
   else if (product_category.compare("HPG") == 0 && ref_rov.compare("ROV") == 0)
@@ -131,7 +139,9 @@ void UbloxNode::addProductInterface(std::string product_category,
   else if(product_category.compare("SPG") != 0)
     ROS_WARN("Product category %s %s from MonVER message not recognized %s",
              product_category.c_str(), ref_rov.c_str(),
-             "options are HPG REF, HPG ROV, HPG #.#, HDG #.#, TIM, ADR, UDR, FTS, SPG");
+             "options are HPG REF, HPG ROV, HPG #.#, HDG #.#, TIM, ADR, UDR, FTS, SPG");    
+  }
+
 }
 
 void UbloxNode::getRosParams() {
@@ -264,6 +274,7 @@ void UbloxNode::printInf(const ublox_msgs::Inf &m, uint8_t id) {
 
 void UbloxNode::subscribe() {
   ROS_DEBUG("Subscribing to U-Blox messages");
+  ROS_INFO("melk: Subscribing to U-Blox messages");
   // subscribe messages
   nh->param("publish/all", enabled["all"], false);
   nh->param("inf/all", enabled["inf"], true);
@@ -271,6 +282,8 @@ void UbloxNode::subscribe() {
   nh->param("publish/rxm/all", enabled["rxm"], enabled["all"]);
   nh->param("publish/aid/all", enabled["aid"], enabled["all"]);
   nh->param("publish/mon/all", enabled["mon"], enabled["all"]);
+  ROS_INFO("melk: publish/all");
+  ROS_INFO("melk: Value is %d.", enabled["all"]);
 
   // Nav Messages
   nh->param("publish/nav/status", enabled["nav_status"], enabled["nav"]);
@@ -366,11 +379,13 @@ void UbloxNode::processMonVer() {
 
   ROS_DEBUG("%s, HW VER: %s", monVer.swVersion.c_array(),
                monVer.hwVersion.c_array());
+  ROS_INFO("melk %s, HW VER: %s", monVer.swVersion.c_array(),
+               monVer.hwVersion.c_array());
   // Convert extension to vector of strings
   std::vector<std::string> extension;
   extension.reserve(monVer.extension.size());
   for(std::size_t i = 0; i < monVer.extension.size(); ++i) {
-    ROS_DEBUG("%s", monVer.extension[i].field.c_array());
+    ROS_DEBUG("melk monVer extension %s", monVer.extension[i].field.c_array());
     // Find the end of the string (null character)
     unsigned char* end = std::find(monVer.extension[i].field.begin(),
           monVer.extension[i].field.end(), '\0');
@@ -386,6 +401,7 @@ void UbloxNode::processMonVer() {
       break;
     }
   }
+  ROS_DEBUG("melk protocol version %d", protocol_version_);
   if (protocol_version_ == 0)
     ROS_WARN("Failed to parse MonVER and determine protocol version. %s",
              "Defaulting to firmware version 6.");
@@ -396,6 +412,7 @@ void UbloxNode::processMonVer() {
     std::vector<std::string> strs;
     if(extension.size() > 0)
       boost::split(strs, extension[extension.size()-1], boost::is_any_of(";"));
+      ROS_INFO("melk < 18 strs %s", strs);
     for(size_t i = 0; i < strs.size(); i++)
       supported.insert(strs[i]);
   } else {
@@ -404,6 +421,7 @@ void UbloxNode::processMonVer() {
       // Up to 2nd to last line
       if(i <= extension.size() - 2) {
         boost::split(strs, extension[i], boost::is_any_of("="));
+        ROS_INFO("melk else strs %s", strs);
         if(strs.size() > 1) {
           if (strs[0].compare(std::string("FWVER")) == 0) {
             if(strs[1].length() > 8)
@@ -1638,8 +1656,12 @@ bool HpgRovProduct::configureUblox() {
 
 void HpgRovProduct::subscribe() {
   // Whether to publish Nav Relative Position NED
+  ROS_INFO("melk: in HpgRovProduct");
   nh->param("publish/nav/relposned", enabled["nav_relposned"], enabled["nav"]);
   // Subscribe to Nav Relative Position NED messages (also updates diagnostics)
+  ROS_INFO("melk: publish/nav/relposned");
+  ROS_INFO("melk: Value is %d.", enabled["nav_relposned"]);
+
   gps.subscribe<ublox_msgs::NavRELPOSNED>(boost::bind(
      &HpgRovProduct::callbackNavRelPosNed, this, _1), kSubscribeRate);
 }
@@ -1688,7 +1710,11 @@ void HpgRovProduct::carrierPhaseDiagnostics(
 }
 
 void HpgRovProduct::callbackNavRelPosNed(const ublox_msgs::NavRELPOSNED &m) {
+  ROS_INFO("melk: In callback HpgRovProduct");
+  ROS_INFO("melk: Value of nav_relposned is %d.", enabled["nav_relposned"]);
+
   if (enabled["nav_relposned"]) {
+    ROS_INFO("melk: Publishing navrelposned");
     static ros::Publisher publisher =
         nh->advertise<ublox_msgs::NavRELPOSNED>("navrelposned", kROSQueueSize);
     publisher.publish(m);
