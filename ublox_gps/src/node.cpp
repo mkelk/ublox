@@ -115,11 +115,11 @@ void UbloxNode::addProductInterface(std::string product_category,
                                     std::string ref_rov) {
   ROS_INFO("melk: In UbloxNode");
 
-  ROS_INFO("melk: product_category is %s.", product_category);
+  ROS_INFO("melk: product_category is %s.", product_category.c_str());
 
   // melk: Hack to MAKE us choose HpgRovProduct, even though product_category is garbage
-  if (true) {
-    components_.push_back(ComponentPtr(new HpgRovProduct));
+  if (false) {
+    components_.push_back(ComponentPtr(new HpPosRecProduct));
   } else {
   if (product_category.compare("HPG") == 0 && ref_rov.compare("REF") == 0)
     components_.push_back(ComponentPtr(new HpgRefProduct));
@@ -396,12 +396,14 @@ void UbloxNode::processMonVer() {
   for(std::size_t i = 0; i < extension.size(); ++i) {
     std::size_t found = extension[i].find("PROTVER");
     if (found != std::string::npos) {
+      ROS_DEBUG("found PROTVER extension %s", extension[i].c_str());
+      ROS_DEBUG("stringslice is =  --%s--", extension[i].substr(8, extension[i].size()-8).c_str());
       protocol_version_ = ::atof(
           extension[i].substr(8, extension[i].size()-8).c_str());
       break;
     }
   }
-  ROS_DEBUG("melk protocol version %d", protocol_version_);
+  ROS_INFO("melk protocol version %.2f", protocol_version_);
   if (protocol_version_ == 0)
     ROS_WARN("Failed to parse MonVER and determine protocol version. %s",
              "Defaulting to firmware version 6.");
@@ -412,7 +414,6 @@ void UbloxNode::processMonVer() {
     std::vector<std::string> strs;
     if(extension.size() > 0)
       boost::split(strs, extension[extension.size()-1], boost::is_any_of(";"));
-      ROS_INFO("melk < 18 strs %s", strs);
     for(size_t i = 0; i < strs.size(); i++)
       supported.insert(strs[i]);
   } else {
@@ -421,8 +422,9 @@ void UbloxNode::processMonVer() {
       // Up to 2nd to last line
       if(i <= extension.size() - 2) {
         boost::split(strs, extension[i], boost::is_any_of("="));
-        ROS_INFO("melk else strs %s", strs);
         if(strs.size() > 1) {
+          ROS_INFO("melk else strs[0] %s", strs[0].c_str());
+          ROS_INFO("melk else strs[1] %s", strs[1].c_str());
           if (strs[0].compare(std::string("FWVER")) == 0) {
             if(strs[1].length() > 8)
               addProductInterface(strs[1].substr(0, 3), strs[1].substr(8, 10));
